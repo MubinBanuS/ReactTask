@@ -1,6 +1,3 @@
-using MediatR;
-using Microsoft.AspNetCore.Mvc;
-
 namespace RL.Backend.Models;
 
 public class ApiResponse<T> where T : new()

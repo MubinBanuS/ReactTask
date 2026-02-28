@@ -1,0 +1,16 @@
+﻿global using MediatR;
+global using Microsoft.AspNetCore.Mvc;
+global using Microsoft.AspNetCore.OData;
+global using Microsoft.AspNetCore.OData.Query;
+global using Microsoft.EntityFrameworkCore;
+global using Microsoft.OpenApi.Models;
+global using RL.Backend;
+global using RL.Backend.Commands;
+global using RL.Backend.Exceptions;
+global using RL.Backend.Middleware;
+global using RL.Backend.Models;
+global using RL.Data;
+global using RL.Data.DataModels;
+global using Swashbuckle.AspNetCore.SwaggerGen;
+global using System.Text.Json;
+global using System.Text.Json.Serialization;

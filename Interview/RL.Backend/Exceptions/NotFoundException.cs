@@ -1,10 +1,10 @@
 namespace RL.Backend.Exceptions;
 
-public class NotFoundException : System.Exception
+public class NotFoundException : Exception
 {
     public NotFoundException() { }
     public NotFoundException(string message) : base(message) { }
-    public NotFoundException(string message, System.Exception inner) : base(message, inner) { }
+    public NotFoundException(string message, Exception inner) : base(message, inner) { }
     protected NotFoundException(
         System.Runtime.Serialization.SerializationInfo info,
         System.Runtime.Serialization.StreamingContext context) : base(info, context) { }

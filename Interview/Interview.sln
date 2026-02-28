@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.30114.105
+# Visual Studio Version 18
+VisualStudioVersion = 18.3.11512.155 d18.3
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RL.Backend", "RL.Backend\RL.Backend.csproj", "{8ABC75AA-12EA-4182-813B-E4A37144AB37}"
 EndProject
@@ -9,13 +9,15 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RL.Data", "RL.Data\RL.Data.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RL.Backend.UnitTests", "RL.Backend.UnitTests\RL.Backend.UnitTests.csproj", "{065B0248-A3CA-43CC-960C-D22017816A82}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{972C6675-D222-4631-B402-DABFC20F926D}"
+	ProjectSection(SolutionItems) = preProject
+		global.json = global.json
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
-	EndGlobalSection
-	GlobalSection(SolutionProperties) = preSolution
-		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{8ABC75AA-12EA-4182-813B-E4A37144AB37}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
@@ -30,5 +32,11 @@ Global
 		{065B0248-A3CA-43CC-960C-D22017816A82}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{065B0248-A3CA-43CC-960C-D22017816A82}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{065B0248-A3CA-43CC-960C-D22017816A82}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {FF824FBB-E7D0-4509-866A-BE294E93F2F4}
 	EndGlobalSection
 EndGlobal

@@ -1,9 +1,8 @@
-using Swashbuckle.AspNetCore.SwaggerGen;
-using Microsoft.OpenApi.Models;
+namespace RL.Backend;
 
-public class EnableQueryFiler : IOperationFilter
+public class EnableQueryFilter : IOperationFilter
 {
-    static List<OpenApiParameter> s_Parameters = (new List<(string Name, string Description)>()
+    static readonly List<OpenApiParameter> s_Parameters = (new List<(string Name, string Description)>()
             {
                 ( "$top", "The max number of records."),
                 ( "$skip", "The number of records to skip."),

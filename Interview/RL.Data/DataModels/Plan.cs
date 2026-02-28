@@ -1,6 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-using RL.Data.DataModels.Common;
-
 namespace RL.Data.DataModels;
 
 public class Plan : IChangeTrackable

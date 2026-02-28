@@ -1,14 +1,11 @@
-﻿using Microsoft.EntityFrameworkCore;
-using RL.Data.DataModels;
-using RL.Data.DataModels.Common;
-
-namespace RL.Data;
+﻿namespace RL.Data;
 public class RLContext : DbContext
 {
     public DbSet<Plan> Plans { get; set; }
     public DbSet<PlanProcedure> PlanProcedures { get; set; }
     public DbSet<Procedure> Procedures { get; set; }
     public DbSet<User> Users { get; set; }
+    public DbSet<PlanProcedureUser> PlanProcedureUsers { get; set; }
 
     public RLContext() { }
     public RLContext(DbContextOptions<RLContext> options) : base(options) { }
@@ -23,7 +20,16 @@ public class RLContext : DbContext
             typeBuilder.HasOne(pp => pp.Plan).WithMany(p => p.PlanProcedures);
             typeBuilder.HasOne(pp => pp.Procedure).WithMany();
         });
-
+        builder.Entity<PlanProcedureUser>(typeBuilder =>
+        {
+            // Composite key of PlanId, ProcedureId, and UserId to ensure uniqueness of each user assignment to a specific procedure within a plan
+            typeBuilder.HasKey(ppu => new { ppu.PlanId, ppu.ProcedureId, ppu.UserId });
+            // Relationships: Each PlanProcedureUser has one PlanProcedure and PlanProcedure can have many PlanProcedureUsers
+            // Foreign key is composite of PlanId and ProcedureId in PlanProcedureUser referencing the same in PlanProcedure
+            typeBuilder.HasOne(ppu => ppu.PlanProcedure).WithMany(pp => pp.PlanProcedureUsers).HasForeignKey(ppu => new { ppu.PlanId, ppu.ProcedureId });
+            // Each PlanProcedureUser has one User and User can have many PlanProcedureUsers
+            typeBuilder.HasOne(ppu => ppu.User).WithMany().HasForeignKey(ppu => ppu.UserId);
+        });
         //Add procedure Seed Data
         var seedData = File.ReadAllLines(Path.Combine(AppContext.BaseDirectory, "ProcedureSeedData.csv"));
         builder.Entity<Procedure>(p =>
