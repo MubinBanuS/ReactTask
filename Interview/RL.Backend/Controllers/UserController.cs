@@ -2,9 +2,7 @@ namespace RL.Backend.Controllers;
 /// <summary>
 /// UserController is responsible for handling HTTP requests related to users, including retrieving all users from the database. It utilizes the RLContext for data access and the ILogger for logging information about the operations performed. The controller ensures that if no users are found, an appropriate log entry is created, and an empty list is returned to the client. This design allows for efficient handling of user-related requests while maintaining a clean separation of concerns and adhering to best practices for dependency injection and logging.
 /// </summary>
-[ApiController]
-[Route("[controller]")]
-public class UsersController : ControllerBase
+public class UsersController : BaseApiController
 {
     /// <summary>
     /// Represents the logger instance used to record log messages for the UsersController.
@@ -32,6 +30,8 @@ public class UsersController : ControllerBase
     /// <returns>Returns users list</returns>
     [HttpGet]
     [EnableQuery]
+    [ProducesResponseType(typeof(IEnumerable<Plan>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public IEnumerable<User> Get()
     {
         IEnumerable<User> users = _context.Users;

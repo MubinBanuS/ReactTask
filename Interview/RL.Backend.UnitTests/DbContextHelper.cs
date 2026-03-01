@@ -7,6 +7,9 @@ public static class DbContextHelper
         if (string.IsNullOrWhiteSpace(name))
             name = Guid.NewGuid().ToString();
 
+        //Loads procedure data
+        SeedDataCache.Procedures = ProcedureSeedProvider.LoadProcedures();
+
         var dbContextOptions = new DbContextOptionsBuilder<RLContext>()
             .UseInMemoryDatabase(databaseName: name)
             .Options;

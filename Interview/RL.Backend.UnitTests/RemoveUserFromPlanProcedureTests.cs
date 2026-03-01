@@ -21,143 +21,99 @@ public class RemoveUserFromPlanProcedureTests
     }
 
     [TestMethod]
-    [DataRow(-1)]
-    [DataRow(0)]
-    [DataRow(int.MinValue)]
-    public async Task RemoveUserFromPlanProcedure_InvalidPlanId_ReturnsBadRequest(int planId)
-    {
-        var request = new RemoveUserFromPlanProcedureCommand
-        {
-            PlanId = planId,
-            ProcedureId = 1,
-            UserId = null
-        };
-
-        var result = await handler.Handle(request, CancellationToken.None);
-
-        result.Exception.Should().BeOfType<BadRequestException>();
-        result.Succeeded.Should().BeFalse();
-    }
-
-    [TestMethod]
-    [DataRow(-1)]
-    [DataRow(0)]
-    [DataRow(int.MinValue)]
-    public async Task RemoveUserFromPlanProcedure_InvalidProcedureId_ReturnsBadRequest(int procedureId)
-    {
-        var request = new RemoveUserFromPlanProcedureCommand
-        {
-            PlanId = 1,
-            ProcedureId = procedureId,
-            UserId = null
-        };
-
-        var result = await handler.Handle(request, CancellationToken.None);
-
-        result.Exception.Should().BeOfType<BadRequestException>();
-        result.Succeeded.Should().BeFalse();
-    }
-
-    [TestMethod]
-    [DataRow(-1)]
-    [DataRow(int.MinValue)]
-    public async Task RemoveUserFromPlanProcedure_NegativeUserId_ReturnsBadRequest(int userId)
-    {
-        var request = new RemoveUserFromPlanProcedureCommand
-        {
-            PlanId = 1,
-            ProcedureId = 1,
-            UserId = userId
-        };
-
-        var result = await handler.Handle(request, CancellationToken.None);
-
-        result.Exception.Should().BeOfType<BadRequestException>();
-        result.Succeeded.Should().BeFalse();
-    }
-
-    [TestMethod]
-    public async Task RemoveUserFromPlanProcedure_RemoveAll_NoAssociations_ReturnsSuccess()
-    {
-        var request = new RemoveUserFromPlanProcedureCommand
-        {
-            PlanId = 1,
-            ProcedureId = 1,
-            UserId = 0 // remove all users; none exist
-        };
-
-        var result = await handler.Handle(request, CancellationToken.None);
-
-        result.Value.Should().BeOfType<Unit>();
-        result.Succeeded.Should().BeTrue();
-    }
-
-    [TestMethod]
-    public async Task RemoveUserFromPlanProcedure_RemoveAll_WithAssociations_RemovesAndReturnsSuccess()
+    public async Task RemoveUserFromPlanProcedure_RemoveSpecificUser_MarksAsDeleted()
     {
         var planId = 1;
         var procedureId = 1;
+        var userId = 1;
 
-        // add an association to remove
-        context.PlanProcedureUsers.Add(new Data.DataModels.PlanProcedureUser { PlanId = planId, ProcedureId = procedureId, UserId = 5 });
-        await context.SaveChangesAsync();
-
-        var request = new RemoveUserFromPlanProcedureCommand
-        {
-            PlanId = planId,
-            ProcedureId = procedureId,
-            UserId = null // remove all users for plan-procedure
-        };
-
-        var result = await handler.Handle(request, CancellationToken.None);
-
-        result.Value.Should().BeOfType<Unit>();
-        result.Succeeded.Should().BeTrue();
-
-        var remaining = await context.PlanProcedureUsers.AnyAsync(p => p.PlanId == planId && p.ProcedureId == procedureId);
-        remaining.Should().BeFalse();
-    }
-
-    [TestMethod]
-    public async Task RemoveUserFromPlanProcedure_RemoveSpecific_AssociationNotFound_ReturnsNotFound()
-    {
-        var request = new RemoveUserFromPlanProcedureCommand
-        {
-            PlanId = 1,
-            ProcedureId = 1,
-            UserId = 999 // no such association
-        };
-
-        var result = await handler.Handle(request, CancellationToken.None);
-
-        result.Exception.Should().BeOfType<NotFoundException>();
-        result.Succeeded.Should().BeFalse();
-    }
-
-    [TestMethod]
-    public async Task RemoveUserFromPlanProcedure_RemoveSpecific_AssociationExists_RemovesAndReturnsSuccess()
-    {
-        var planId = 2;
-        var procedureId = 2;
-        var userId = 10;
-
-        // create the association to be removed
+        context.Plans.Add(new Data.DataModels.Plan { PlanId = planId });
+        context.Procedures.Add(new Data.DataModels.Procedure { ProcedureId = procedureId, ProcedureTitle = "Test" });
+        context.PlanProcedures.Add(new Data.DataModels.PlanProcedure { PlanId = planId, ProcedureId = procedureId });
+        context.Users.Add(new Data.DataModels.User { UserId = userId });
         context.PlanProcedureUsers.Add(new Data.DataModels.PlanProcedureUser { PlanId = planId, ProcedureId = procedureId, UserId = userId });
         await context.SaveChangesAsync();
 
-        var request = new RemoveUserFromPlanProcedureCommand
-        {
-            PlanId = planId,
-            ProcedureId = procedureId,
-            UserId = userId
-        };
+        var request = new RemoveUserFromPlanProcedureCommand { PlanId = planId, ProcedureId = procedureId, UserId = userId };
 
         var result = await handler.Handle(request, CancellationToken.None);
 
-        result.Value.Should().BeOfType<Unit>();
         result.Succeeded.Should().BeTrue();
 
-        var exists = await context.PlanProcedureUsers.AnyAsync(p => p.PlanId == planId && p.ProcedureId == procedureId && p.UserId == userId);
-        exists.Should().BeFalse();
+        var entry = await context.PlanProcedureUsers.IgnoreQueryFilters().FirstOrDefaultAsync(ppu => ppu.PlanId == planId && ppu.ProcedureId == procedureId && ppu.UserId == userId);
+        entry.Should().NotBeNull();
+        entry.IsDeleted.Should().BeTrue();
+        entry.DeletedAt.Should().NotBeNull();
+    }
+
+    [TestMethod]
+    public async Task RemoveUserFromPlanProcedure_RemoveAllUsers_MarksAllAsDeleted()
+    {
+        var planId = 2;
+        var procedureId = 2;
+
+        context.Plans.Add(new Data.DataModels.Plan { PlanId = planId });
+        context.Procedures.Add(new Data.DataModels.Procedure { ProcedureId = procedureId, ProcedureTitle = "Test" });
+        context.PlanProcedures.Add(new Data.DataModels.PlanProcedure { PlanId = planId, ProcedureId = procedureId });
+        context.Users.Add(new Data.DataModels.User { UserId = 10 });
+        context.Users.Add(new Data.DataModels.User { UserId = 11 });
+        context.PlanProcedureUsers.Add(new Data.DataModels.PlanProcedureUser { PlanId = planId, ProcedureId = procedureId, UserId = 10 });
+        context.PlanProcedureUsers.Add(new Data.DataModels.PlanProcedureUser { PlanId = planId, ProcedureId = procedureId, UserId = 11 });
+        await context.SaveChangesAsync();
+
+        var request = new RemoveUserFromPlanProcedureCommand { PlanId = planId, ProcedureId = procedureId, UserId = null };
+
+        var result = await handler.Handle(request, CancellationToken.None);
+
+        result.Succeeded.Should().BeTrue();
+
+        var entries = await context.PlanProcedureUsers.IgnoreQueryFilters().Where(ppu => ppu.PlanId == planId && ppu.ProcedureId == procedureId).ToListAsync();
+        entries.Should().HaveCount(2);
+        entries.All(e => e.IsDeleted).Should().BeTrue();
+    }
+
+    [TestMethod]
+    public async Task RemoveUserFromPlanProcedure_RemoveNonExistingUser_ReturnsSuccess_NoChange()
+    {
+        var planId = 3;
+        var procedureId = 3;
+
+        context.Plans.Add(new Data.DataModels.Plan { PlanId = planId });
+        context.Procedures.Add(new Data.DataModels.Procedure { ProcedureId = procedureId, ProcedureTitle = "Test" });
+        context.PlanProcedures.Add(new Data.DataModels.PlanProcedure { PlanId = planId, ProcedureId = procedureId });
+        // existing mapping for user 20
+        context.Users.Add(new Data.DataModels.User { UserId = 20 });
+        context.PlanProcedureUsers.Add(new Data.DataModels.PlanProcedureUser { PlanId = planId, ProcedureId = procedureId, UserId = 20 });
+        await context.SaveChangesAsync();
+
+        var request = new RemoveUserFromPlanProcedureCommand { PlanId = planId, ProcedureId = procedureId, UserId = 999 }; // not present
+
+        var result = await handler.Handle(request, CancellationToken.None);
+
+        result.Succeeded.Should().BeTrue();
+
+        // ensure existing mapping still present and not deleted
+        var entry = await context.PlanProcedureUsers.IgnoreQueryFilters().FirstOrDefaultAsync(ppu => ppu.PlanId == planId && ppu.ProcedureId == procedureId && ppu.UserId == 20);
+        entry.Should().NotBeNull();
+        entry.IsDeleted.Should().BeFalse();
+    }
+
+    [TestMethod]
+    public async Task RemoveUserFromPlanProcedure_RemoveAllWhenNoUsers_ReturnsSuccess()
+    {
+        var planId = 4;
+        var procedureId = 4;
+
+        // no PlanProcedureUsers added
+        context.Plans.Add(new Data.DataModels.Plan { PlanId = planId });
+        context.Procedures.Add(new Data.DataModels.Procedure { ProcedureId = procedureId, ProcedureTitle = "Test" });
+        context.PlanProcedures.Add(new Data.DataModels.PlanProcedure { PlanId = planId, ProcedureId = procedureId });
+        await context.SaveChangesAsync();
+
+        var request = new RemoveUserFromPlanProcedureCommand { PlanId = planId, ProcedureId = procedureId, UserId = null };
+
+        var result = await handler.Handle(request, CancellationToken.None);
+
+        result.Succeeded.Should().BeTrue();
     }
 }

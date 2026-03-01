@@ -1,13 +1,12 @@
 ﻿namespace RL.Backend.Commands.Handlers.Plans;
 /// <summary>
-/// Handles the removal of a user from a specified plan and procedure, or all users if the UserId is not provided.
-/// Implements the IRequestHandler interface to process RemoveUserFromPlanProcedureCommand requests and return an
-/// ApiResponse indicating the outcome.
+/// Handles requests to remove a user or all users from a specified plan and procedure, updating user associations
+/// accordingly and returning the result of the operation.
 /// </summary>
-/// <remarks>This command handler validates the request to ensure that the PlanId and ProcedureId are positive
-/// integers. If the UserId is null or zero, all users associated with the specified plan and procedure will be removed.
-/// The handler logs warnings for validation failures and returns appropriate ApiResponse instances based on the outcome
-/// of the operation.</remarks>
+/// <remarks>This handler uses the application data context to access and modify user associations with plans and
+/// procedures. It logs the outcome of each removal operation for monitoring and troubleshooting purposes. The handler
+/// supports both targeted removal of a specific user and bulk removal of all users associated with a plan-procedure
+/// combination.</remarks>
 public class RemoveUserFromPlanProcedureCommandHandler : IRequestHandler<RemoveUserFromPlanProcedureCommand, ApiResponse<Unit>>
 {
     /// <summary>
@@ -22,63 +21,68 @@ public class RemoveUserFromPlanProcedureCommandHandler : IRequestHandler<RemoveU
     /// troubleshooting issues during runtime.</remarks>
     private readonly ILogger<RemoveUserFromPlanProcedureCommandHandler> _logger;
     /// <summary>
-    /// Initializes a new instance of the RemoveUserFromPlanProcedureCommandHandler class with the specified database
+    /// Initializes a new instance of the RemoveUserFromPlanProcedureCommandHandler class using the specified database
     /// context and logger.
     /// </summary>
-    /// <param name="context">The database context used to access and modify plan and user data.</param>
-    /// <param name="logger">The logger used to record operational and error information related to user removal from a plan.</param>
-    /// <exception cref="ArgumentNullException">Thrown if either the context or logger parameter is null.</exception>
+    /// <param name="context">The database context used to access and manipulate plan and user data. This parameter must not be null.</param>
+    /// <param name="logger">The logger used to record operational and error information for this command handler. This parameter must not be
+    /// null.</param>
+    /// <exception cref="ArgumentNullException">Thrown when either the context or logger parameter is null.</exception>
     public RemoveUserFromPlanProcedureCommandHandler(RLContext context, ILogger<RemoveUserFromPlanProcedureCommandHandler> logger)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
+    /// <summary>
+    /// Handles the removal of a user from a specified plan-procedure association, or removes all users if no specific
+    /// user is provided.
+    /// </summary>
+    /// <remarks>If no users are found for the specified plan and procedure, the method logs this information
+    /// and returns a successful response. The method also logs the outcome of the user removal operation.</remarks>
+    /// <param name="request">The command containing the identifiers for the plan, procedure, and user to be removed. If the UserId is null or
+    /// zero, all users associated with the specified plan and procedure will be removed.</param>
+    /// <param name="cancellationToken">A cancellation token to observe while waiting for the task to complete, allowing the operation to be cancelled
+    /// if needed.</param>
+    /// <returns>An ApiResponse<Unit> indicating the success or failure of the user removal operation.</returns>
     public async Task<ApiResponse<Unit>> Handle(RemoveUserFromPlanProcedureCommand request, CancellationToken cancellationToken)
     {
-        //validate request
-        var validationResult = ValidateRequest(request);
-        if (validationResult != null)
-        {
-            _logger.LogWarning("RemoveUserFromPlanProcedureCommand validation failed for PlanId: {PlanId}, ProcedureId: {ProcedureId} and UserId: {UserId}: {Message}", request.PlanId, request.ProcedureId, request.UserId, validationResult.Exception?.Message);
-            return validationResult;
-        }
+        DateTime currentDateTime = DateTime.UtcNow;
         if (request.UserId is null || request.UserId == 0)
         {
             // Remove all users for the plan-procedure; succeed if nothing to remove
             var associations = await _context.PlanProcedureUsers
-                .Where(p => p.PlanId == request.PlanId && p.ProcedureId == request.ProcedureId)
+                .IgnoreQueryFilters()
+                .Where(p => p.PlanId == request.PlanId && p.ProcedureId == request.ProcedureId && !p.IsDeleted)
                 .ToListAsync(cancellationToken);
             if (associations.Count == 0)
+            {
+                _logger.LogInformation("No users found for PlanId {PlanId}, ProcedureId {ProcedureId}", request.PlanId, request.ProcedureId);
                 return ApiResponse<Unit>.Succeed(Unit.Value);
-            _context.PlanProcedureUsers.RemoveRange(associations);
+            }
+            foreach (var association in associations)
+            {
+                association.IsDeleted = true;
+                association.DeletedAt = currentDateTime;
+                association.UpdateDate = currentDateTime;
+            }
         }
         else
         {
             // Remove a specific user for the plan-procedure
             var association = await _context.PlanProcedureUsers
-                .FindAsync(new object[] { request.PlanId, request.ProcedureId, request.UserId.Value }, cancellationToken);
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(ppu => ppu.PlanId == request.PlanId && ppu.ProcedureId == request.ProcedureId && ppu.UserId == request.UserId && !ppu.IsDeleted, cancellationToken);
             if (association is null)
-                return ApiResponse<Unit>.Fail(new NotFoundException("Plan procedure association not found."));
-            _context.PlanProcedureUsers.Remove(association);
+            {
+                _logger.LogInformation("UserId {UserId} already removed or not associated with PlanId {PlanId}, ProcedureId {ProcedureId}", request.UserId, request.PlanId, request.ProcedureId);
+                return ApiResponse<Unit>.Succeed(Unit.Value);
+            }
+            association.IsDeleted = true;
+            association.DeletedAt = currentDateTime;
+            association.UpdateDate = currentDateTime;
         }
-        var rows = await _context.SaveChangesAsync(cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation("User removal successful for PlanId {PlanId}, ProcedureId {ProcedureId} and UserId {UserId}", request.PlanId, request.ProcedureId, request.UserId);
         return ApiResponse<Unit>.Succeed(Unit.Value);
-    }
-
-    /// <summary>
-    /// Validates the incoming RemoveUserFromPlanProcedureCommand request to ensure that the PlanId and ProcedureId are positive integers. 
-    /// UserId can be 0 to indicate removal of all users, but cannot be negative. 
-    /// If validation fails, an appropriate ApiResponse with a BadRequestException is returned; otherwise, null is returned to indicate successful validation.
-    /// </summary>
-    /// <param name="request"></param>
-    /// <returns></returns>
-    private static ApiResponse<Unit>? ValidateRequest(RemoveUserFromPlanProcedureCommand request)
-    {
-        if (request.PlanId <= 0 || request.ProcedureId <= 0)
-            return ApiResponse<Unit>.Fail(new BadRequestException("PlanId and ProcedureId must be positive integers."));
-
-        if (request.UserId < 0)
-            return ApiResponse<Unit>.Fail(new BadRequestException("UserId cannot be negative. Use 0 to remove all users."));
-        return null;
     }
 }

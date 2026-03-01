@@ -51,12 +51,13 @@ public class AddProcedureToPlanCommandHandler : IRequestHandler<AddProcedureToPl
     /// found exceptions if applicable.</returns>
     public async Task<ApiResponse<Unit>> Handle(AddProcedureToPlanCommand request, CancellationToken cancellationToken)
     {
-        //validate request and check for existing association
-        var validationResult = await ValidateRequestAsync(request, cancellationToken);
-        if (validationResult != null)
+        //Check if the procedure is already associated with the plan
+        bool associationExists = await _context.PlanProcedures.AsNoTracking().AnyAsync(pp => pp.PlanId == request.PlanId && pp.ProcedureId == request.ProcedureId, cancellationToken);
+        //Already has the procedure, so just succeed
+        if (associationExists)
         {
-            _logger.LogWarning("AddProcedureToPlanCommand validation failed for PlanId: {PlanId} and Procedure: {ProcedureId}: {Message}", request.PlanId, request.ProcedureId, validationResult.Exception?.Message);
-            return validationResult;
+            _logger.LogInformation("ProcedureId: {ProcedureId} is already associated with PlanId: {PlanId}. No action taken.", request.ProcedureId, request.PlanId);
+            return ApiResponse<Unit>.Succeed(Unit.Value);
         }
         //Add the procedure to the plan
         _context.PlanProcedures.Add(new PlanProcedure
@@ -65,51 +66,7 @@ public class AddProcedureToPlanCommandHandler : IRequestHandler<AddProcedureToPl
             ProcedureId = request.ProcedureId
         });
         await _context.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation("ProcedureId {ProcedureId} added successfully to PlanId {PlanId}", request.ProcedureId, request.PlanId);
         return ApiResponse<Unit>.Succeed(Unit.Value);
-    }
-
-    /// <summary>
-    /// Validates a request to associate a procedure with a plan, ensuring that both entities exist and are not already
-    /// linked.
-    /// </summary>
-    /// <remarks>This method checks for valid identifiers, verifies the existence of the plan and procedure,
-    /// and determines whether the procedure is already linked to the plan. Logging is performed for missing entities
-    /// and existing associations.</remarks>
-    /// <param name="request">The command containing the identifiers for the plan and procedure to be validated. PlanId and ProcedureId must
-    /// be positive integers.</param>
-    /// <param name="cancellationToken">A token to monitor for cancellation requests during the asynchronous operation.</param>
-    /// <returns>An ApiResponse<Unit> indicating the result of the validation. Returns a failure response if validation fails, or
-    /// a success response if the procedure is already associated with the plan. Returns null if the procedure is not
-    /// yet associated and validation passes.</returns>
-    private async Task<ApiResponse<Unit>?> ValidateRequestAsync(AddProcedureToPlanCommand request, CancellationToken cancellationToken)
-    {
-        //Validate request
-        if (request.PlanId < 1)
-            return ApiResponse<Unit>.Fail(new BadRequestException("PlanId must be a positive integer"));
-        if (request.ProcedureId < 1)
-            return ApiResponse<Unit>.Fail(new BadRequestException("ProcedureId must be a positive integer"));
-        bool planExists = await _context.Plans.AnyAsync(p => p.PlanId == request.PlanId, cancellationToken);
-        if (!planExists)
-        {
-            _logger.LogWarning("PlanId: {PlanId} not found when attempting to add ProcedureId: {ProcedureId}", request.PlanId, request.ProcedureId);
-            return ApiResponse<Unit>.Fail(new NotFoundException($"PlanId: {request.PlanId} not found"));
-        }
-
-        bool procedureExists = await _context.Procedures.AnyAsync(p => p.ProcedureId == request.ProcedureId, cancellationToken);
-        if (!procedureExists)
-        {
-            _logger.LogWarning("ProcedureId: {ProcedureId} not found when attempting to add to PlanId: {PlanId}", request.ProcedureId, request.PlanId);
-            return ApiResponse<Unit>.Fail(new NotFoundException($"ProcedureId: {request.ProcedureId} not found"));
-        }
-        //Check if the procedure is already associated with the plan
-        bool associationExists = await _context.PlanProcedures.AnyAsync(pp => pp.PlanId == request.PlanId && pp.ProcedureId == request.ProcedureId, cancellationToken);
-
-        //Already has the procedure, so just succeed
-        if (associationExists)
-        {
-            _logger.LogInformation("ProcedureId: {ProcedureId} is already associated with PlanId: {PlanId}. No action taken.", request.ProcedureId, request.PlanId);
-            return ApiResponse<Unit>.Succeed(Unit.Value);
-        }
-        return null;
     }
 }

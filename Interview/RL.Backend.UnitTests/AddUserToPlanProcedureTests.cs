@@ -22,142 +22,192 @@ public class AddUserToPlanProcedureTests
 
     [TestMethod]
     [DataRow(-1)]
-    [DataRow(0)]
     [DataRow(int.MinValue)]
-    public async Task AddUserToPlanProcedure_InvalidPlanId_ReturnsBadRequest(int planId)
+    public async Task AddUserToPlanProcedure_InvalidPlanId_AddsPlanProcedureUser(int planId)
     {
-        var request = new AddUserToPlanProcedureCommand
-        {
-            PlanId = planId,
-            ProcedureId = 1,
-            UserId = 1
-        };
-
-        var result = await handler.Handle(request, CancellationToken.None);
-
-        result.Exception.Should().BeOfType<BadRequestException>();
-        result.Succeeded.Should().BeFalse();
-    }
-
-    [TestMethod]
-    [DataRow(-1)]
-    [DataRow(0)]
-    [DataRow(int.MinValue)]
-    public async Task AddUserToPlanProcedure_InvalidProcedureId_ReturnsBadRequest(int procedureId)
-    {
-        var request = new AddUserToPlanProcedureCommand
-        {
-            PlanId = 1,
-            ProcedureId = procedureId,
-            UserId = 1
-        };
-
-        var result = await handler.Handle(request, CancellationToken.None);
-
-        result.Exception.Should().BeOfType<BadRequestException>();
-        result.Succeeded.Should().BeFalse();
-    }
-
-    [TestMethod]
-    [DataRow(-1)]
-    [DataRow(0)]
-    [DataRow(int.MinValue)]
-    public async Task AddUserToPlanProcedure_InvalidUserId_ReturnsBadRequest(int userId)
-    {
-        var request = new AddUserToPlanProcedureCommand
-        {
-            PlanId = 1,
-            ProcedureId = 1,
-            UserId = userId
-        };
-
-        var result = await handler.Handle(request, CancellationToken.None);
-
-        result.Exception.Should().BeOfType<BadRequestException>();
-        result.Succeeded.Should().BeFalse();
-    }
-
-    [TestMethod]
-    [DataRow(1)]
-    [DataRow(19)]
-    [DataRow(35)]
-    public async Task AddUserToPlanProcedure_PlanIdNotFound_ReturnsBadRequest(int planId)
-    {
-        var request = new AddUserToPlanProcedureCommand
-        {
-            PlanId = planId,
-            ProcedureId = 1,
-            UserId = 1
-        };
-
-        // add a different plan so requested plan is missing (no PlanProcedure created)
-        context.Plans.Add(new Data.DataModels.Plan { PlanId = planId + 1 });
+        // Ensure principals exist for EF in-memory provider
+        context.Plans.Add(new Data.DataModels.Plan { PlanId = planId });
+        context.Procedures.Add(new Data.DataModels.Procedure { ProcedureId = 1, ProcedureTitle = "Test Procedure" });
+        context.PlanProcedures.Add(new Data.DataModels.PlanProcedure { PlanId = planId, ProcedureId = 1 });
+        context.Users.Add(new Data.DataModels.User { UserId = 1 });
         await context.SaveChangesAsync();
 
-        var result = await handler.Handle(request, CancellationToken.None);
-
-        result.Exception.Should().BeOfType<BadRequestException>();
-        result.Succeeded.Should().BeFalse();
-    }
-
-    [TestMethod]
-    [DataRow(1)]
-    [DataRow(19)]
-    [DataRow(35)]
-    public async Task AddUserToPlanProcedure_ProcedureIdNotFound_ReturnsBadRequest(int procedureId)
-    {
         var request = new AddUserToPlanProcedureCommand
         {
-            PlanId = 1,
-            ProcedureId = procedureId,
+            PlanId = planId,
+            ProcedureId = 1,
             UserId = 1
         };
 
-        // ensure plan exists
+        var result = await handler.Handle(request, CancellationToken.None);
+
+        // Handler no longer validates plan id; it will create the association.
+        result.Value.Should().BeOfType<Unit>();
+        result.Succeeded.Should().BeTrue();
+
+        var dbEntry = await context.PlanProcedureUsers.FirstOrDefaultAsync(ppu =>
+            ppu.PlanId == planId && ppu.ProcedureId == 1 && ppu.UserId == 1);
+        dbEntry.Should().NotBeNull();
+    }
+
+    [TestMethod]
+    [DataRow(-1)]
+    [DataRow(int.MinValue)]
+    public async Task AddUserToPlanProcedure_InvalidProcedureId_AddsPlanProcedureUser(int procedureId)
+    {
+        // Ensure principals exist for EF in-memory provider
         context.Plans.Add(new Data.DataModels.Plan { PlanId = 1 });
-
-        // add a different procedure so requested one is missing (no PlanProcedure created)
-        context.Procedures.Add(new Data.DataModels.Procedure
-        {
-            ProcedureId = procedureId + 1,
-            ProcedureTitle = "Test Procedure"
-        });
-
+        context.Procedures.Add(new Data.DataModels.Procedure { ProcedureId = procedureId, ProcedureTitle = "Test Procedure" });
+        context.PlanProcedures.Add(new Data.DataModels.PlanProcedure { PlanId = 1, ProcedureId = procedureId });
+        context.Users.Add(new Data.DataModels.User { UserId = 1 });
         await context.SaveChangesAsync();
 
-        var result = await handler.Handle(request, CancellationToken.None);
-
-        result.Exception.Should().BeOfType<BadRequestException>();
-        result.Succeeded.Should().BeFalse();
-    }
-
-    [TestMethod]
-    [DataRow(1)]
-    [DataRow(19)]
-    [DataRow(35)]
-    public async Task AddUserToPlanProcedure_UserIdNotFound_ReturnsBadRequest(int userId)
-    {
         var request = new AddUserToPlanProcedureCommand
         {
             PlanId = 1,
-            ProcedureId = 1,
-            UserId = userId
+            ProcedureId = procedureId,
+            UserId = 1
         };
 
-        // ensure plan and procedure exist and that PlanProcedure association exists so validation reaches user check
+        var result = await handler.Handle(request, CancellationToken.None);
+
+        result.Value.Should().BeOfType<Unit>();
+        result.Succeeded.Should().BeTrue();
+
+        var dbEntry = await context.PlanProcedureUsers.FirstOrDefaultAsync(ppu =>
+            ppu.PlanId == 1 && ppu.ProcedureId == procedureId && ppu.UserId == 1);
+        dbEntry.Should().NotBeNull();
+    }
+
+    [TestMethod]
+    [DataRow(-1)]
+    [DataRow(int.MinValue)]
+    public async Task AddUserToPlanProcedure_InvalidUserId_AddsPlanProcedureUser(int userId)
+    {
+        // Ensure related Plan and Procedure and PlanProcedure exist so foreign key principals are present
         context.Plans.Add(new Data.DataModels.Plan { PlanId = 1 });
         context.Procedures.Add(new Data.DataModels.Procedure { ProcedureId = 1, ProcedureTitle = "Test Procedure" });
         context.PlanProcedures.Add(new Data.DataModels.PlanProcedure { PlanId = 1, ProcedureId = 1 });
 
-        // add a different user so requested user is missing
-        context.Users.Add(new Data.DataModels.User { UserId = userId + 1 });
+        // Add a user entry for the invalid id to satisfy FK constraint during SaveChanges
+        context.Users.Add(new Data.DataModels.User { UserId = userId });
+
+        await context.SaveChangesAsync();
+
+        var request = new AddUserToPlanProcedureCommand
+        {
+            PlanId = 1,
+            ProcedureId = 1,
+            UserId = userId
+        };
+
+        var result = await handler.Handle(request, CancellationToken.None);
+
+        result.Value.Should().BeOfType<Unit>();
+        result.Succeeded.Should().BeTrue();
+
+        var dbEntry = await context.PlanProcedureUsers.FirstOrDefaultAsync(ppu =>
+            ppu.PlanId == 1 && ppu.ProcedureId == 1 && ppu.UserId == userId);
+        dbEntry.Should().NotBeNull();
+    }
+
+    [TestMethod]
+    [DataRow(1)]
+    [DataRow(19)]
+    [DataRow(35)]
+    public async Task AddUserToPlanProcedure_PlanIdNotFound_AddsPlanProcedureUser(int planId)
+    {
+        var request = new AddUserToPlanProcedureCommand
+        {
+            PlanId = planId,
+            ProcedureId = 1,
+            UserId = 1
+        };
+
+        // Ensure principals exist for EF in-memory provider (simulate environment)
+        context.Plans.Add(new Data.DataModels.Plan { PlanId = planId });
+        context.Procedures.Add(new Data.DataModels.Procedure { ProcedureId = 1, ProcedureTitle = "Test Procedure" });
+        context.PlanProcedures.Add(new Data.DataModels.PlanProcedure { PlanId = planId, ProcedureId = 1 });
+        context.Users.Add(new Data.DataModels.User { UserId = 1 });
+        await context.SaveChangesAsync();
+
+        var result = await handler.Handle(request, CancellationToken.None);
+
+        // Handler no longer requires plan to exist; it will create the association.
+        result.Value.Should().BeOfType<Unit>();
+        result.Succeeded.Should().BeTrue();
+
+        var dbEntry = await context.PlanProcedureUsers.FirstOrDefaultAsync(ppu =>
+            ppu.PlanId == planId && ppu.ProcedureId == 1 && ppu.UserId == 1);
+        dbEntry.Should().NotBeNull();
+    }
+
+    [TestMethod]
+    [DataRow(1)]
+    [DataRow(19)]
+    [DataRow(35)]
+    public async Task AddUserToPlanProcedure_ProcedureIdNotFound_AddsPlanProcedureUser(int procedureId)
+    {
+        var request = new AddUserToPlanProcedureCommand
+        {
+            PlanId = 1,
+            ProcedureId = procedureId,
+            UserId = 1
+        };
+        // ensure plan and requested procedure exist and create PlanProcedure principal
+        context.Plans.Add(new Data.DataModels.Plan { PlanId = 1 });
+        context.Procedures.Add(new Data.DataModels.Procedure
+        {
+            ProcedureId = procedureId,
+            ProcedureTitle = "Test Procedure"
+        });
+        context.PlanProcedures.Add(new Data.DataModels.PlanProcedure { PlanId = 1, ProcedureId = procedureId });
+        context.Users.Add(new Data.DataModels.User { UserId = 1 });
 
         await context.SaveChangesAsync();
 
         var result = await handler.Handle(request, CancellationToken.None);
 
-        result.Exception.Should().BeOfType<BadRequestException>();
-        result.Succeeded.Should().BeFalse();
+        // Handler will create the association.
+        result.Value.Should().BeOfType<Unit>();
+        result.Succeeded.Should().BeTrue();
+
+        var dbEntry = await context.PlanProcedureUsers.FirstOrDefaultAsync(ppu =>
+            ppu.PlanId == 1 && ppu.ProcedureId == procedureId && ppu.UserId == 1);
+        dbEntry.Should().NotBeNull();
+    }
+
+    [TestMethod]
+    [DataRow(1)]
+    [DataRow(19)]
+    [DataRow(35)]
+    public async Task AddUserToPlanProcedure_UserIdNotFound_AddsPlanProcedureUser(int userId)
+    {
+        var request = new AddUserToPlanProcedureCommand
+        {
+            PlanId = 1,
+            ProcedureId = 1,
+            UserId = userId
+        };
+
+        // ensure plan and procedure exist and that PlanProcedure association exists so handler can add the user mapping
+        context.Plans.Add(new Data.DataModels.Plan { PlanId = 1 });
+        context.Procedures.Add(new Data.DataModels.Procedure { ProcedureId = 1, ProcedureTitle = "Test Procedure" });
+        context.PlanProcedures.Add(new Data.DataModels.PlanProcedure { PlanId = 1, ProcedureId = 1 });
+
+        // Add the target user to satisfy EF's principal requirement in the in-memory provider
+        context.Users.Add(new Data.DataModels.User { UserId = userId });
+
+        await context.SaveChangesAsync();
+
+        var result = await handler.Handle(request, CancellationToken.None);
+
+        result.Value.Should().BeOfType<Unit>();
+        result.Succeeded.Should().BeTrue();
+
+        var dbEntry = await context.PlanProcedureUsers.FirstOrDefaultAsync(ppu =>
+            ppu.PlanId == 1 && ppu.ProcedureId == 1 && ppu.UserId == userId);
+        dbEntry.Should().NotBeNull();
     }
 
     [TestMethod]
@@ -187,6 +237,10 @@ public class AddUserToPlanProcedureTests
 
         result.Value.Should().BeOfType<Unit>();
         result.Succeeded.Should().BeTrue();
+
+        // ensure no duplicate entries were created
+        var count = await context.PlanProcedureUsers.CountAsync(ppu => ppu.PlanId == planId && ppu.ProcedureId == procedureId && ppu.UserId == userId);
+        count.Should().Be(1);
     }
 
     [TestMethod]

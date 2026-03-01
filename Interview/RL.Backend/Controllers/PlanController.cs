@@ -2,9 +2,7 @@ namespace RL.Backend.Controllers;
 /// <summary>
 /// Plan Controller is responsible for handling HTTP requests related to plans, including retrieving all plans, creating new plans, and adding procedures to existing plans. It utilizes the RLContext for data access and the MediatR library for command handling, ensuring a clean separation of concerns and adherence to the CQRS pattern. The controller also supports OData queries for retrieving plans, allowing clients to filter, sort, and paginate results as needed.
 /// </summary>
-[ApiController]
-[Route("[controller]")]
-public class PlanController : ControllerBase
+public class PlanController : BaseApiController
 {
     /// <summary>
     /// Represents the logger instance used to record log messages for the PlanController.
@@ -41,6 +39,8 @@ public class PlanController : ControllerBase
     /// <returns>Returns all plans as enumerable list</returns>
     [HttpGet]
     [EnableQuery]
+    [ProducesResponseType(typeof(IEnumerable<Plan>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public IEnumerable<Plan> Get()
     {
         IEnumerable<Plan> plans = _context.Plans;
@@ -61,6 +61,11 @@ public class PlanController : ControllerBase
     /// <param name="token">Cancellation token</param>
     /// <returns>Returns response as IActionResult</returns>
     [HttpPost]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> PostPlan(CreatePlanCommand command, CancellationToken token)
     {
         var response = await _mediator.Send(command, token);
@@ -84,6 +89,11 @@ public class PlanController : ControllerBase
     /// <param name="token">cancellation token</param>
     /// <returns>Returns response as IActionResult</returns>
     [HttpPost("AddProcedureToPlan")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> AddProcedureToPlan(AddProcedureToPlanCommand command, CancellationToken token)
     {
         var response = await _mediator.Send(command, token);

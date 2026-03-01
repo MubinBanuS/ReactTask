@@ -1,11 +1,15 @@
-﻿global using MediatR;
+﻿global using Asp.Versioning;
+global using FluentValidation;
+global using MediatR;
 global using Microsoft.AspNetCore.Mvc;
 global using Microsoft.AspNetCore.OData;
 global using Microsoft.AspNetCore.OData.Query;
 global using Microsoft.EntityFrameworkCore;
 global using Microsoft.OpenApi.Models;
 global using RL.Backend;
+global using RL.Backend.Behaviors;
 global using RL.Backend.Commands;
+global using RL.Backend.Commands.Validators.Plans;
 global using RL.Backend.Exceptions;
 global using RL.Backend.Middleware;
 global using RL.Backend.Models;

@@ -1,4 +1,4 @@
-const api_url = "http://localhost:10010";
+const api_url = "http://localhost:10010/api/v1";
 
 export const startPlan = async () => {
     const url = `${api_url}/Plan`;
@@ -40,8 +40,8 @@ export const getProcedures = async () => {
     });
 
     if (!response.ok) throw new Error("Failed to get procedures");
-
-    return await response.json();
+    const procedures = await response.json();
+    return procedures;
 };
 
 export const getPlanProcedures = async (planId) => {

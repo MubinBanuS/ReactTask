@@ -4,14 +4,14 @@ namespace RL.Backend.UnitTests;
 public class AddProcedureToPlanTests
 {
     private RLContext context = null!;
-    private AddProcedureToPlanCommandHandler procedureToPlanCommandHandler = null!;
+    private AddProcedureToPlanCommandHandler handler = null!;
 
     [TestInitialize]
     public void Setup()
     {
         context = DbContextHelper.CreateContext();
         var loggerMock = new Mock<ILogger<AddProcedureToPlanCommandHandler>>();
-        procedureToPlanCommandHandler = new AddProcedureToPlanCommandHandler(context, loggerMock.Object);
+        handler = new AddProcedureToPlanCommandHandler(context, loggerMock.Object);
     }
 
     [TestCleanup]
@@ -22,141 +22,200 @@ public class AddProcedureToPlanTests
 
     [TestMethod]
     [DataRow(-1)]
-    [DataRow(0)]
     [DataRow(int.MinValue)]
-    public async Task AddProcedureToPlanTests_InvalidPlanId_ReturnsBadRequest(int planId)
+    public async Task AddProcedureToPlan_InvalidPlanId_AddsPlanProcedure(int planId)
     {
-        var request = new AddProcedureToPlanCommand()
+        var request = new AddProcedureToPlanCommand
         {
             PlanId = planId,
             ProcedureId = 1
         };
 
-        var result = await procedureToPlanCommandHandler.Handle(request, CancellationToken.None);
+        var result = await handler.Handle(request, CancellationToken.None);
 
-        result.Exception.Should().BeOfType<BadRequestException>();
-        result.Succeeded.Should().BeFalse();
+        result.Value.Should().BeOfType<Unit>();
+        result.Succeeded.Should().BeTrue();
+
+        var dbEntry = await context.PlanProcedures.FirstOrDefaultAsync(pp =>
+            pp.PlanId == planId && pp.ProcedureId == 1);
+        dbEntry.Should().NotBeNull();
     }
 
     [TestMethod]
     [DataRow(-1)]
-    [DataRow(0)]
     [DataRow(int.MinValue)]
-    public async Task AddProcedureToPlanTests_InvalidProcedureId_ReturnsBadRequest(int procedureId)
+    public async Task AddProcedureToPlan_InvalidProcedureId_AddsPlanProcedure(int procedureId)
     {
-        var request = new AddProcedureToPlanCommand()
+        var request = new AddProcedureToPlanCommand
         {
             PlanId = 1,
             ProcedureId = procedureId
         };
 
-        var result = await procedureToPlanCommandHandler.Handle(request, CancellationToken.None);
+        var result = await handler.Handle(request, CancellationToken.None);
 
-        result.Exception.Should().BeOfType<BadRequestException>();
-        result.Succeeded.Should().BeFalse();
+        result.Value.Should().BeOfType<Unit>();
+        result.Succeeded.Should().BeTrue();
+
+        var dbEntry = await context.PlanProcedures.FirstOrDefaultAsync(pp =>
+            pp.PlanId == 1 && pp.ProcedureId == procedureId);
+        dbEntry.Should().NotBeNull();
     }
 
     [TestMethod]
-    [DataRow(1)]
-    [DataRow(19)]
-    [DataRow(35)]
-    public async Task AddProcedureToPlanTests_PlanIdNotFound_ReturnsNotFound(int planId)
+    public async Task AddProcedureToPlan_PlanIdNotFound_AddsPlanProcedure()
     {
-        var request = new AddProcedureToPlanCommand()
+        var request = new AddProcedureToPlanCommand
         {
-            PlanId = planId,
+            PlanId = 77,
             ProcedureId = 1
         };
 
-        context.Plans.Add(new Data.DataModels.Plan
-        {
-            PlanId = planId + 1
-        });
+        // ensure DB doesn't contain the requested plan
+        context.Plans.Add(new Data.DataModels.Plan { PlanId = 78 });
         await context.SaveChangesAsync();
 
-        var result = await procedureToPlanCommandHandler.Handle(request, CancellationToken.None);
+        var result = await handler.Handle(request, CancellationToken.None);
 
-        result.Exception.Should().BeOfType<NotFoundException>();
-        result.Succeeded.Should().BeFalse();
+        result.Value.Should().BeOfType<Unit>();
+        result.Succeeded.Should().BeTrue();
+
+        var dbEntry = await context.PlanProcedures.FirstOrDefaultAsync(pp =>
+            pp.PlanId == 77 && pp.ProcedureId == 1);
+        dbEntry.Should().NotBeNull();
     }
 
     [TestMethod]
-    [DataRow(1)]
-    [DataRow(19)]
-    [DataRow(35)]
-    public async Task AddProcedureToPlanTests_ProcedureIdNotFound_ReturnsNotFound(int procedureId)
+    public async Task AddProcedureToPlan_ProcedureIdNotFound_AddsPlanProcedure()
     {
-        var request = new AddProcedureToPlanCommand()
+        var request = new AddProcedureToPlanCommand
         {
             PlanId = 1,
-            ProcedureId = procedureId
+            ProcedureId = 9999
         };
 
-        // Ensure the plan referenced by the request exists
-        context.Plans.Add(new Data.DataModels.Plan
-        {
-            PlanId = 1
-        });
-
-        // Add a procedure with a different id so the requested procedure is missing
-        context.Procedures.Add(new Data.DataModels.Procedure
-        {
-            ProcedureId = procedureId + 1,
-            ProcedureTitle = "Test Procedure"
-        });
+        // ensure plan exists but procedure does not
+        context.Plans.Add(new Data.DataModels.Plan { PlanId = 1 });
+        context.Procedures.Add(new Data.DataModels.Procedure { ProcedureId = 10000, ProcedureTitle = "Other" });
         await context.SaveChangesAsync();
 
-        var result = await procedureToPlanCommandHandler.Handle(request, CancellationToken.None);
+        var result = await handler.Handle(request, CancellationToken.None);
 
-        result.Exception.Should().BeOfType<NotFoundException>();
-        result.Succeeded.Should().BeFalse();
+        result.Value.Should().BeOfType<Unit>();
+        result.Succeeded.Should().BeTrue();
+
+        var dbEntry = await context.PlanProcedures.FirstOrDefaultAsync(pp =>
+            pp.PlanId == 1 && pp.ProcedureId == 9999);
+        dbEntry.Should().NotBeNull();
     }
 
     [TestMethod]
-    [DataRow(1, 1)]
-    [DataRow(19, 1010)]
-    [DataRow(35, 69)]
-    public async Task AddProcedureToPlanTests_AlreadyContainsProcedure_ReturnsSuccess(int planId, int procedureId)
+    public async Task AddProcedureToPlan_AlreadyContainsProcedure_ReturnsSuccess_NoDuplicate()
     {
-        var request = new AddProcedureToPlanCommand()
+        var planId = 5;
+        var procedureId = 10;
+
+        context.Plans.Add(new Data.DataModels.Plan { PlanId = planId });
+        context.Procedures.Add(new Data.DataModels.Procedure { ProcedureId = procedureId, ProcedureTitle = "Test" });
+
+        // existing association
+        context.PlanProcedures.Add(new Data.DataModels.PlanProcedure { PlanId = planId, ProcedureId = procedureId });
+        await context.SaveChangesAsync();
+
+        var request = new AddProcedureToPlanCommand
         {
             PlanId = planId,
             ProcedureId = procedureId
         };
 
-        context.Plans.Add(new Data.DataModels.Plan { PlanId = planId });
-        context.Procedures.Add(new Data.DataModels.Procedure { ProcedureId = procedureId, ProcedureTitle = "Test Procedure" });
-        context.PlanProcedures.Add(new Data.DataModels.PlanProcedure { ProcedureId = procedureId, PlanId = planId });
-        await context.SaveChangesAsync();
-
-        var result = await procedureToPlanCommandHandler.Handle(request, CancellationToken.None);
+        var result = await handler.Handle(request, CancellationToken.None);
 
         result.Value.Should().BeOfType<Unit>();
         result.Succeeded.Should().BeTrue();
+
+        var count = await context.PlanProcedures.CountAsync(pp => pp.PlanId == planId && pp.ProcedureId == procedureId);
+        count.Should().Be(1);
     }
 
     [TestMethod]
-    [DataRow(1, 1)]
-    [DataRow(19, 1010)]
-    [DataRow(35, 69)]
-    public async Task AddProcedureToPlanTests_DoesntContainsProcedure_ReturnsSuccess(int planId, int procedureId)
+    public async Task AddProcedureToPlan_DoesntContainProcedure_ReturnsSuccess_Added()
     {
-        var request = new AddProcedureToPlanCommand()
+        var planId = 6;
+        var procedureId = 11;
+
+        context.Plans.Add(new Data.DataModels.Plan { PlanId = planId });
+        context.Procedures.Add(new Data.DataModels.Procedure { ProcedureId = procedureId, ProcedureTitle = "Test" });
+        await context.SaveChangesAsync();
+
+        var request = new AddProcedureToPlanCommand
         {
             PlanId = planId,
             ProcedureId = procedureId
         };
 
-        context.Plans.Add(new Data.DataModels.Plan { PlanId = planId });
-        context.Procedures.Add(new Data.DataModels.Procedure { ProcedureId = procedureId, ProcedureTitle = "Test Procedure" });
-        await context.SaveChangesAsync();
-
-        var result = await procedureToPlanCommandHandler.Handle(request, CancellationToken.None);
-
-        var dbPlanProcedure = await context.PlanProcedures.FirstOrDefaultAsync(pp => pp.PlanId == planId && pp.ProcedureId == procedureId);
-        dbPlanProcedure.Should().NotBeNull();
+        var result = await handler.Handle(request, CancellationToken.None);
 
         result.Value.Should().BeOfType<Unit>();
         result.Succeeded.Should().BeTrue();
+
+        var dbEntry = await context.PlanProcedures.FirstOrDefaultAsync(pp => pp.PlanId == planId && pp.ProcedureId == procedureId);
+        dbEntry.Should().NotBeNull();
+    }
+
+    [TestMethod]
+    public async Task Validator_NegativeIds_ReturnsValidationErrors()
+    {
+        var validator = new AddProcedureToPlanCommandValidator(context);
+
+        var invalidPlan = new AddProcedureToPlanCommand { PlanId = -1, ProcedureId = 1 };
+        var resultPlan = await validator.ValidateAsync(invalidPlan);
+        resultPlan.IsValid.Should().BeFalse();
+        resultPlan.Errors.Should().Contain(e => e.PropertyName == nameof(invalidPlan.PlanId) && e.ErrorMessage == "PlanId must be a positive integer.");
+
+        var invalidProcedure = new AddProcedureToPlanCommand { PlanId = 1, ProcedureId = 0 };
+        var resultProcedure = await validator.ValidateAsync(invalidProcedure);
+        resultProcedure.IsValid.Should().BeFalse();
+        resultProcedure.Errors.Should().Contain(e => e.PropertyName == nameof(invalidProcedure.ProcedureId) && e.ErrorMessage == "ProcedureId must be a positive integer.");
+    }
+
+    [TestMethod]
+    public async Task Validator_PlanNotFound_ReturnsValidationError()
+    {
+        var validator = new AddProcedureToPlanCommandValidator(context);
+
+        // ensure plan not present
+        var command = new AddProcedureToPlanCommand { PlanId = 5000, ProcedureId = 1 };
+
+        var result = await validator.ValidateAsync(command);
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.PropertyName == nameof(command.PlanId) && e.ErrorMessage == "The specified plan does not exist.");
+    }
+
+    [TestMethod]
+    public async Task Validator_ProcedureNotFound_ReturnsValidationError()
+    {
+        var validator = new AddProcedureToPlanCommandValidator(context);
+
+        // ensure procedure not present
+        var command = new AddProcedureToPlanCommand { PlanId = 1, ProcedureId = 6000 };
+
+        var result = await validator.ValidateAsync(command);
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.PropertyName == nameof(command.ProcedureId) && e.ErrorMessage == "The specified procedure does not exist.");
+    }
+
+    [TestMethod]
+    public async Task Validator_ValidCommand_Passes()
+    {
+        // add plan and procedure so validator's async existence checks succeed
+        context.Plans.Add(new Data.DataModels.Plan { PlanId = 200 });
+        context.Procedures.Add(new Data.DataModels.Procedure { ProcedureId = 300, ProcedureTitle = "Seed" });
+        await context.SaveChangesAsync();
+
+        var validator = new AddProcedureToPlanCommandValidator(context);
+        var command = new AddProcedureToPlanCommand { PlanId = 200, ProcedureId = 300 };
+
+        var result = await validator.ValidateAsync(command);
+        result.IsValid.Should().BeTrue();
     }
 }

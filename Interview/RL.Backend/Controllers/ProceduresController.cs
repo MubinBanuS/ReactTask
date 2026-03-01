@@ -2,9 +2,7 @@ namespace RL.Backend.Controllers;
 /// <summary>
 /// ProceduresController is responsible for handling HTTP requests related to procedures, including retrieving all procedures from the database. It utilizes the RLContext for data access and the ILogger for logging information about the operations performed. The controller ensures that if no procedures are found, an appropriate log entry is created, and an empty list is returned to the client. This design allows for efficient handling of procedure-related requests while maintaining a clean separation of concerns and adhering to best practices for dependency injection and logging.
 /// </summary>
-[ApiController]
-[Route("[controller]")]
-public class ProceduresController : ControllerBase
+public class ProceduresController : BaseApiController
 {
     /// <summary>
     /// Represents the logger instance used to record log messages for the ProceduresController.
@@ -32,6 +30,8 @@ public class ProceduresController : ControllerBase
     /// <returns>Returns all procedures</returns>
     [HttpGet]
     [EnableQuery]
+    [ProducesResponseType(typeof(IEnumerable<Procedure>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public IEnumerable<Procedure> Get()
     {
         IEnumerable<Procedure> procedures = _context.Procedures;

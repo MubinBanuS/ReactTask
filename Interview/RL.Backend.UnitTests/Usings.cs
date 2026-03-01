@@ -6,5 +6,5 @@ global using Microsoft.VisualStudio.TestTools.UnitTesting;
 global using Moq;
 global using RL.Backend.Commands;
 global using RL.Backend.Commands.Handlers.Plans;
-global using RL.Backend.Exceptions;
+global using RL.Backend.Commands.Validators.Plans;
 global using RL.Data;
