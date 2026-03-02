@@ -35,7 +35,6 @@ public class RLContext : DbContext
             typeBuilder.HasOne(pp => pp.Procedure).WithMany();
         });
         builder.ApplyConfiguration(new PlanProcedureUserConfiguration());
-        //SeedDataCache.Procedures = ProcedureSeedProvider.LoadProcedures();
         //Add procedure Seed Data
         if (SeedDataCache.Procedures.Any())
         {
