@@ -59,7 +59,7 @@ public class AddProcedureToPlanCommandHandler : IRequestHandler<AddProcedureToPl
             _logger.LogInformation("ProcedureId: {ProcedureId} is already associated with PlanId: {PlanId}. No action taken.", request.ProcedureId, request.PlanId);
             return ApiResponse<Unit>.Succeed(Unit.Value);
         }
-        //Add the procedure to the plan
+        //Add the procedure to the plan if it doesn't exist
         _context.PlanProcedures.Add(new PlanProcedure
         {
             PlanId = request.PlanId,

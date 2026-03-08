@@ -47,40 +47,20 @@ public class RemoveUserFromPlanProcedureCommandHandler : IRequestHandler<RemoveU
     public async Task<ApiResponse<Unit>> Handle(RemoveUserFromPlanProcedureCommand request, CancellationToken cancellationToken)
     {
         DateTime currentDateTime = DateTime.UtcNow;
-        if (request.UserId is null || request.UserId == 0)
+        // gets all users associated with the plan and procedure
+        var association = await _context.PlanProcedureUsers
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(ppu => ppu.PlanId == request.PlanId && ppu.ProcedureId == request.ProcedureId && ppu.UserId == request.UserId && !ppu.IsDeleted, cancellationToken);
+        // If no users are found for the specified plan and procedure, log the information and return a successful response
+        if (association is null)
         {
-            // Remove all users for the plan-procedure; succeed if nothing to remove
-            var associations = await _context.PlanProcedureUsers
-                .IgnoreQueryFilters()
-                .Where(p => p.PlanId == request.PlanId && p.ProcedureId == request.ProcedureId && !p.IsDeleted)
-                .ToListAsync(cancellationToken);
-            if (associations.Count == 0)
-            {
-                _logger.LogInformation("No users found for PlanId {PlanId}, ProcedureId {ProcedureId}", request.PlanId, request.ProcedureId);
-                return ApiResponse<Unit>.Succeed(Unit.Value);
-            }
-            foreach (var association in associations)
-            {
-                association.IsDeleted = true;
-                association.DeletedAt = currentDateTime;
-                association.UpdateDate = currentDateTime;
-            }
+            _logger.LogInformation("UserId {UserId} already removed or not associated with PlanId {PlanId}, ProcedureId {ProcedureId}", request.UserId, request.PlanId, request.ProcedureId);
+            return ApiResponse<Unit>.Succeed(Unit.Value);
         }
-        else
-        {
-            // Remove a specific user for the plan-procedure
-            var association = await _context.PlanProcedureUsers
-                .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(ppu => ppu.PlanId == request.PlanId && ppu.ProcedureId == request.ProcedureId && ppu.UserId == request.UserId && !ppu.IsDeleted, cancellationToken);
-            if (association is null)
-            {
-                _logger.LogInformation("UserId {UserId} already removed or not associated with PlanId {PlanId}, ProcedureId {ProcedureId}", request.UserId, request.PlanId, request.ProcedureId);
-                return ApiResponse<Unit>.Succeed(Unit.Value);
-            }
-            association.IsDeleted = true;
-            association.DeletedAt = currentDateTime;
-            association.UpdateDate = currentDateTime;
-        }
+        // Remove a specific user for the plan-procedure
+        association.IsDeleted = true;
+        association.DeletedAt = currentDateTime;
+        association.UpdateDate = currentDateTime;
         await _context.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("User removal successful for PlanId {PlanId}, ProcedureId {ProcedureId} and UserId {UserId}", request.PlanId, request.ProcedureId, request.UserId);
         return ApiResponse<Unit>.Succeed(Unit.Value);

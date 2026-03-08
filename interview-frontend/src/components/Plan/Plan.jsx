@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams } from "react-router-dom";
+import { toast } from "react-toastify";
+
 import {
   addProcedureToPlan,
   getPlanProcedures,
@@ -8,109 +10,153 @@ import {
   addUserToPlanProcedure,
   removeUserFromPlanProcedure
 } from "../../api/api";
-import Layout from '../Layout/Layout';
+
+import Layout from "../Layout/Layout";
 import ProcedureItem from "./ProcedureItem/ProcedureItem";
 import PlanProcedureItem from "./PlanProcedureItem/PlanProcedureItem";
+import { useApiAction } from "../../hooks/useApiAction";
 
 const Plan = () => {
-  let { id } = useParams();
+  const { id } = useParams();
+
   const [procedures, setProcedures] = useState([]);
   const [planProcedures, setPlanProcedures] = useState([]);
-  const [users, setUsers] = useState([]);
+  const [usersRaw, setUsersRaw] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Derived value memoization
+  const users = useMemo(
+    () => usersRaw.map(u => ({ label: u.name, value: u.userId })),
+    [usersRaw]
+  );
 
   useEffect(() => {
-    (async () => {
-      var procedures = await getProcedures();
-      var planProcedures = await getPlanProcedures(id);
-      var users = await getUsers();
+    const loadData = async () => {
+      setLoading(true);
 
-      var userOptions = [];
-      users.map((u) => userOptions.push({ label: u.name, value: u.userId }));
+      try {
+        const [proceduresData, planProceduresData, usersData] = await Promise.all([
+          getProcedures(),
+          getPlanProcedures(id),
+          getUsers()
+        ]);
 
-      setUsers(userOptions);
-      setProcedures(procedures);
-      setPlanProcedures(planProcedures);
-    })();
+        setProcedures(proceduresData);
+        setPlanProcedures(planProceduresData);
+        setUsersRaw(usersData);
+      } catch (error) {
+        console.error("Error loading data:", error);
+        toast.error(
+          "Failed to load data. Please check if the API is running.",
+          { toastId: "load-error" }
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
   }, [id]);
 
-  const handleAddProcedureToPlan = async (procedure) => {
-    const hasProcedureInPlan = planProcedures.some((p) => p.procedureId === procedure.procedureId);
-    if (hasProcedureInPlan) return;
-    await addProcedureToPlan(id, procedure.procedureId);
-    setPlanProcedures((prevState) => {
-      return [
-        ...prevState,
-        {
-          planId: id,
-          procedureId: procedure.procedureId,
-          procedure: {
-            procedureId: procedure.procedureId,
-            procedureTitle: procedure.procedureTitle,
-          },
-        },
-      ];
-    });
+  const refreshPlanProcedures = useCallback(async () => {
+    const updated = await getPlanProcedures(id);
+    setPlanProcedures(updated);
+  }, [id]);
+
+  const addProcedure = useApiAction({
+    apiCall: addProcedureToPlan,
+    successMessage: "Procedure added to plan successfully",
+    errorMessage: "Failed to add procedure to plan",
+    onSuccess: refreshPlanProcedures,
+    throwOnError: true
+  });
+
+  const addUser = useApiAction({
+    apiCall: addUserToPlanProcedure,
+    successMessage: "User added to procedure successfully",
+    errorMessage: "Failed to add user to procedure",
+    onSuccess: refreshPlanProcedures,
+    throwOnError: true
+  });
+
+  const removeUser = useApiAction({
+    apiCall: removeUserFromPlanProcedure,
+    successMessage: "User removed from procedure successfully",
+    errorMessage: "Failed to remove user from procedure",
+    onSuccess: refreshPlanProcedures,
+    throwOnError: true
+  });
+
+  // Stable handlers
+  const handleAddProcedureToPlan = (procedure) => {
+    addProcedure.execute(id, procedure.procedureId);
   };
 
-  const handleAddUserToPlanProcedure = async(procedureId,userId)=>{
-    const planId = id;
-    await addUserToPlanProcedure(planId, procedureId, userId);
-    var planProcedures = await getPlanProcedures(id);
-    setPlanProcedures(planProcedures);
-
+  const handleAddUserToPlanProcedure = (procedureId, userId) => {
+    addUser.execute(id, procedureId, userId);
   };
 
-  const handleRemoveUserFromPlanProcedure = async(procedureId,userId)=>{
-    const planId = id;  
-    await removeUserFromPlanProcedure(planId, procedureId, userId);
-    var planProcedures = await getPlanProcedures(id);
-    setPlanProcedures(planProcedures);
+  const handleRemoveUserFromPlanProcedure = (procedureId, userId) => {
+    removeUser.execute(id, procedureId, userId);
   };
 
-
-  
   return (
     <Layout>
       <div className="container pt-4">
         <div className="d-flex justify-content-center">
           <h2>OEC Interview Frontend</h2>
         </div>
+
         <div className="row mt-4">
           <div className="col">
             <div className="card shadow">
               <h5 className="card-header">Repair Plan</h5>
+
               <div className="card-body">
-                <div className="row">
-                  <div className="col">
-                    <h4>Procedures</h4>
-                    <div>
+                {loading ? (
+                  <div className="text-center">
+                    <div className="spinner-border" role="status">
+                      <span className="visually-hidden">Loading...</span>
+                    </div>
+                    <p>Loading plan data...</p>
+                  </div>
+                ) : (
+                  <div className="row">
+                    {/* PROCEDURES */}
+                    <div className="col">
+                      <h4>Procedures</h4>
+
                       {procedures.map((p) => (
                         <ProcedureItem
                           key={p.procedureId}
                           procedure={p}
-                          handleAddProcedureToPlan={handleAddProcedureToPlan}
                           planProcedures={planProcedures}
+                          handleAddProcedureToPlan={handleAddProcedureToPlan}
                         />
                       ))}
                     </div>
-                  </div>
-                  <div className="col">
-                    <h4>Added to Plan</h4>
-                    <div>
+
+                    {/* PLAN PROCEDURES */}
+                    <div className="col">
+                      <h4>Added to Plan</h4>
+
                       {planProcedures.map((p) => (
                         <PlanProcedureItem
                           key={p.procedure.procedureId}
+                          planId={id}
                           procedure={p.procedure}
                           users={users}
-                          planProcedures = {p}
+                          planProcedures={p}
                           handleAddUserToPlanProcedure={handleAddUserToPlanProcedure}
                           handleRemoveUserFromPlanProcedure={handleRemoveUserFromPlanProcedure}
+                          setPlanProcedures={setPlanProcedures}
                         />
                       ))}
                     </div>
                   </div>
-                </div>
+                )}
               </div>
+
             </div>
           </div>
         </div>

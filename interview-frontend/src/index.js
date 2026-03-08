@@ -5,6 +5,9 @@ import "./index.css";
 import App from "./App";
 import Plan from "./components/Plan/Plan";
 import ErrorPage from "./components/Error/Error";
+import 'react-toastify/dist/ReactToastify.css';
+import { ToastContainer } from "react-toastify";
+import { Toast_DURATION } from "./api/apiConstants";
 
 const router = createBrowserRouter([
     {
@@ -22,6 +25,7 @@ const router = createBrowserRouter([
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
     <React.StrictMode>
-        <RouterProvider router={router} />
+        <RouterProvider router={router}  />
+        <ToastContainer position="top-right" autoClose={Toast_DURATION} limit={3} />
     </React.StrictMode>
 );

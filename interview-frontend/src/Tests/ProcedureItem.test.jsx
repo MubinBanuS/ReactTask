@@ -1,5 +1,5 @@
-import React, { act } from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { act } from 'react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import ProcedureItem from '../components/Plan/ProcedureItem/ProcedureItem';
 
 describe('ProcedureItem component', () => {
@@ -27,18 +27,22 @@ describe('ProcedureItem component', () => {
     expect(handleAdd).toHaveBeenCalledWith(procedure);
   });
 
-  it('shows checked when procedure is already in plan', () => {
+  it('shows checked when procedure is already in plan', async () => {
     const handleAdd = jest.fn();
-    const planProcedures = [{ procedureId: '1' }];
-    render(
-      <ProcedureItem
-        procedure={procedure}
-        handleAddProcedureToPlan={handleAdd}
-        planProcedures={planProcedures}
-      />
-    );
+    const planProcedures = [{ procedure: { procedureId: '1' } }];
+    act(() => {
+      render(
+        <ProcedureItem
+          procedure={procedure}
+          handleAddProcedureToPlan={handleAdd}
+          planProcedures={planProcedures}
+        />
+      );
+    });
 
-    const checkbox = screen.getByRole('checkbox');
-    expect(checkbox).toBeChecked();
+    await waitFor(() => {
+      const checkbox = screen.getByRole('checkbox');
+      expect(checkbox).toBeChecked();
+    });
   });
 });

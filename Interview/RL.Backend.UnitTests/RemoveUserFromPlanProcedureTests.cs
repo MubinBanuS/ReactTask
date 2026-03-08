@@ -46,31 +46,6 @@ public class RemoveUserFromPlanProcedureTests
         entry.DeletedAt.Should().NotBeNull();
     }
 
-    [TestMethod]
-    public async Task RemoveUserFromPlanProcedure_RemoveAllUsers_MarksAllAsDeleted()
-    {
-        var planId = 2;
-        var procedureId = 2;
-
-        context.Plans.Add(new Data.DataModels.Plan { PlanId = planId });
-        context.Procedures.Add(new Data.DataModels.Procedure { ProcedureId = procedureId, ProcedureTitle = "Test" });
-        context.PlanProcedures.Add(new Data.DataModels.PlanProcedure { PlanId = planId, ProcedureId = procedureId });
-        context.Users.Add(new Data.DataModels.User { UserId = 10 });
-        context.Users.Add(new Data.DataModels.User { UserId = 11 });
-        context.PlanProcedureUsers.Add(new Data.DataModels.PlanProcedureUser { PlanId = planId, ProcedureId = procedureId, UserId = 10 });
-        context.PlanProcedureUsers.Add(new Data.DataModels.PlanProcedureUser { PlanId = planId, ProcedureId = procedureId, UserId = 11 });
-        await context.SaveChangesAsync();
-
-        var request = new RemoveUserFromPlanProcedureCommand { PlanId = planId, ProcedureId = procedureId, UserId = null };
-
-        var result = await handler.Handle(request, CancellationToken.None);
-
-        result.Succeeded.Should().BeTrue();
-
-        var entries = await context.PlanProcedureUsers.IgnoreQueryFilters().Where(ppu => ppu.PlanId == planId && ppu.ProcedureId == procedureId).ToListAsync();
-        entries.Should().HaveCount(2);
-        entries.All(e => e.IsDeleted).Should().BeTrue();
-    }
 
     [TestMethod]
     public async Task RemoveUserFromPlanProcedure_RemoveNonExistingUser_ReturnsSuccess_NoChange()
@@ -110,7 +85,7 @@ public class RemoveUserFromPlanProcedureTests
         context.PlanProcedures.Add(new Data.DataModels.PlanProcedure { PlanId = planId, ProcedureId = procedureId });
         await context.SaveChangesAsync();
 
-        var request = new RemoveUserFromPlanProcedureCommand { PlanId = planId, ProcedureId = procedureId, UserId = null };
+        var request = new RemoveUserFromPlanProcedureCommand { PlanId = planId, ProcedureId = procedureId, UserId = 0 };
 
         var result = await handler.Handle(request, CancellationToken.None);
 

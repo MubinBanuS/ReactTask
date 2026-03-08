@@ -77,7 +77,7 @@ public class PlanProcedureController : BaseApiController
     }
 
     /// <summary>
-    /// Removes a user or all users from plan procedure. This endpoint is used to unassign a user from a specific procedure within a plan. The request body should contain the PlanId, ProcedureId, and UserId to specify which user is being removed from which procedure in which plan.
+    /// Removes a user from plan procedure. This endpoint is used to unassign a user from a specific procedure within a plan. The request body should contain the PlanId, ProcedureId, and UserId to specify which user is being removed from which procedure in which plan.
     /// </summary>
     /// <param name="command">Remove user from plan procedure command</param>
     /// <param name="token">cancellation token</param>
@@ -101,4 +101,30 @@ public class PlanProcedureController : BaseApiController
         }
         return response.ToActionResult();
     }
+    /// <summary>
+    /// Removes all users from plan procedure. This endpoint is used to unassign all users from a specific procedure within a plan. The request body should contain the PlanId and ProcedureId.
+    /// </summary>
+    /// <param name="command">Remove all users from plan procedure command</param>
+    /// <param name="token">cancellation token</param>
+    /// <returns>Returns response as IActionResult.</returns>
+    [HttpDelete("RemoveAllUsers")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> DeleteAll([FromBody] RemoveAllUsersFromPlanProcedureCommand command, CancellationToken token)
+    {
+        var response = await _mediator.Send(command, token);
+        if (response.Succeeded)
+        {
+            _logger.LogInformation("All Users are removed from procedure with id {ProcedureId} in plan with id {PlanId}", command.ProcedureId, command.PlanId);
+        }
+        else
+        {
+            _logger.LogError(response.Exception, "Failed to remove all users from procedure with id {ProcedureId} in plan with id {PlanId}", command.ProcedureId, command.PlanId);
+        }
+        return response.ToActionResult();
+    }
+
 }

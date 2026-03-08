@@ -1,4 +1,4 @@
-import React, { act } from 'react';
+import { act } from 'react';
 import { render, screen } from '@testing-library/react';
 import { useRouteError } from 'react-router-dom';
 import ErrorPage from '../components/Error/Error';

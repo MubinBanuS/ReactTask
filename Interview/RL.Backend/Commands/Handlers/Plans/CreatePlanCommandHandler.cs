@@ -34,6 +34,7 @@ public class CreatePlanCommandHandler : IRequestHandler<CreatePlanCommand, ApiRe
     /// <returns>Returns created plan</returns>
     public async Task<ApiResponse<Plan>> Handle(CreatePlanCommand request, CancellationToken cancellationToken)
     {
+        // Create a new plan with default values
         var plan = new Plan();
         _context.Plans.Add(plan);
         await _context.SaveChangesAsync(cancellationToken);
